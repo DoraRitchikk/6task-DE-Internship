@@ -3,6 +3,7 @@ import logging
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.dummy import DummyOperator
+from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 import pandas as pd
 from airflow.providers.snowflake.operators.snowflake import SnowflakeHook
 
@@ -125,3 +126,94 @@ with DAG(dag_id="airflow_to_snowflake",
 
     # Вызываем таску для выполнения
     t0 >> load_task
+
+
+    #Загрузка данных в Stage table 
+
+    INSERT_INTO_STAGE_TABEL = (f"""INSERT INTO STAGE_TABLE SELECT 
+       _id,
+       IOS_App_Id,
+       Title,
+       Developer_Name,
+       Developer_IOS_Id,
+       IOS_Store_Url,
+       Seller_Official_Website,
+       Age_Rating,
+       Total_Average_Rating,
+       Total_Number_of_Ratings,
+       Average_Rating_For_Version,
+       Number_of_Ratings_For_Version,
+       Original_Release_Date,
+       Current_Version_Release_Date,
+       Price_USD,
+       Primary_Genre,
+       All_Genres,
+       Languages,
+       Description 
+       FROM RAW_STREAM""")
+
+       
+dagInsertStage =  DAG(
+    "InsertIntoStage",
+    start_date=datetime(2021, 1, 1),
+    default_args={'snowflake_conn_id': SNOWFLAKE_CONN_ID},
+    tags=['example'],
+    catchup=False,) 
+
+StageInsertOperator = SnowflakeOperator(
+    task_id='TableStageOperator',
+    sql=INSERT_INTO_STAGE_TABEL,
+    warehouse=SNOWFLAKE_WAREHOUSE,
+    database=SNOWFLAKE_DATABASE,
+    schema=SNOWFLAKE_SCHEMA,
+    role=SNOWFLAKE_ROLE,
+    dag = dagInsertStage,
+    )
+
+StageInsertOperator
+
+
+INSERT_INTO_MASTER_TABEL = (f"""INSERT INTO MASTER_TABLE SELECT 
+       _id,
+       IOS_App_Id,
+       Title,
+       Developer_Name,
+       Developer_IOS_Id,
+       IOS_Store_Url,
+       Seller_Official_Website,
+       Age_Rating,
+       Total_Average_Rating,
+       Total_Number_of_Ratings,
+       Average_Rating_For_Version,
+       Number_of_Ratings_For_Version,
+       Original_Release_Date,
+       Current_Version_Release_Date,
+       Price_USD,
+       Primary_Genre,
+       All_Genres,
+       Languages,
+       Description 
+       FROM STAGE_STREAM""")
+
+       
+dagInsertMaster =  DAG(
+    "InsertIntoMaster",
+    start_date=datetime(2021, 1, 1),
+    default_args={'snowflake_conn_id': SNOWFLAKE_CONN_ID},
+    tags=['example'],
+    catchup=False,) 
+
+MasterInsertOperator = SnowflakeOperator(
+    task_id='TableMasterOperator',
+    sql=INSERT_INTO_STAGE_TABEL,
+    warehouse=SNOWFLAKE_WAREHOUSE,
+    database=SNOWFLAKE_DATABASE,
+    schema=SNOWFLAKE_SCHEMA,
+    role=SNOWFLAKE_ROLE,
+    dag = dagInsertMaster,
+    )
+
+MasterInsertOperator
+
+
+
